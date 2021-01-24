@@ -59,6 +59,7 @@ class Slider {
     leftArrow: string | undefined;
     rightArrow: string | undefined;
     dotClass: string | undefined;
+    timeoutObject: ReturnType<typeof setTimeout> | undefined;
 
     constructor(props: paramsType) {
         this.dom = props.domObject;
@@ -77,6 +78,7 @@ class Slider {
         this.leftArrow = props.leftArrow;
         this.rightArrow = props.rightArrow;
         this.dotClass = props.dotClass;
+        this.timeoutObject;
 
         this.init();
 
@@ -86,5 +88,49 @@ class Slider {
     init() {
         this.containWidth = this.dom?.offsetWidth;
         this.containHeight = this.dom?.offsetHeight;
+    }
+
+    addDots() {
+        const domWrapperElement: Element = document.createElement('div');
+        const dotElement: Element = document.createElement('div');
+        domWrapperElement.setAttribute('class', 'solider-dots-wrapper');
+        dotElement.setAttribute('class', 'solider-dots');
+        if(this.max === undefined) throw new Error('Can not found childElement')
+        for(let index = 0; index < this.max; index++) {
+            const tempDotElement: Element = dotElement;
+            const nowPage = (index + 1);
+            tempDotElement.addEventListener('click', () => {
+                this.now = nowPage;
+            })
+            domWrapperElement.appendChild(tempDotElement);
+        }
+        this.dom?.appendChild(domWrapperElement);
+    }
+
+    addArrows() {
+
+    }
+
+    addDraggable() {
+
+    }
+
+    addInfinite() {
+
+    }
+
+    addAutoplay() {
+
+    }
+
+    addEffect() {
+        switch(this.type) {
+            case "rotation":
+                break;
+            case "perspective":
+                break;
+            default:
+                throw new Error("Can not found type")
+        }
     }
 }
