@@ -95,7 +95,7 @@ class Slider {
         const dotElement: Element = document.createElement('div');
         domWrapperElement.setAttribute('class', 'solider-dots-wrapper');
         dotElement.setAttribute('class', 'solider-dots');
-        if(this.max === undefined) throw new Error('Can not found childElement')
+        if(this.max === undefined) throw new Error('Can not found childElement');
         for(let index = 0; index < this.max; index++) {
             const tempDotElement: Element = dotElement;
             const nowPage = (index + 1);
@@ -108,7 +108,23 @@ class Slider {
     }
 
     addArrows() {
-
+        const leftArrowElement: Element = document.createElement('div');
+        const rightArrowElement: Element = document.createElement('div');
+        const nextPage = (this.now + 1);
+        const prevPage = (this.now - 1);
+        leftArrowElement.setAttribute('class', 'solider-left-arrow');
+        rightArrowElement.setAttribute('class', 'solider-right-arrow');
+        rightArrowElement.addEventListener('click', () => {
+            if(this.max === undefined) throw new Error('Can not found childElement');
+            if(nextPage > this.max) return;
+            this.now = nextPage;
+        })
+        leftArrowElement.addEventListener('click', () => {
+            if(prevPage < 1) return;
+            this.now = prevPage;
+        })
+        this.dom?.appendChild(leftArrowElement)
+        this.dom?.appendChild(rightArrowElement)
     }
 
     addDraggable() {
