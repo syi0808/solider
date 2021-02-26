@@ -38,6 +38,7 @@ class Slider {
   clientWidth: number | undefined;
   clientHeight: number | undefined;
   type: string | undefined;
+  sliding: boolean | undefined;
   isAutoplay: boolean | undefined;
   isDots: boolean | undefined;
   isArrow: boolean | undefined;
@@ -50,6 +51,7 @@ class Slider {
   rightArrow: string | undefined;
   dotClass: string | undefined;
   timeoutObject: ReturnType<typeof setTimeout> | undefined;
+  intervalObject: ReturnType<typeof setInterval> | undefined;
 
   constructor(props: paramsType) {
     this.dom = props.domObject;
@@ -63,6 +65,7 @@ class Slider {
     this.clientWidth;
     this.clientHeight;
     this.type = props.type;
+    this.sliding = false;
     this.isAutoplay = props.autoplay;
     this.isArrow = props.arrow;
     this.isDots = props.dots;
@@ -75,9 +78,11 @@ class Slider {
     this.rightArrow = props.rightArrow;
     this.dotClass = props.dotClass;
     this.timeoutObject;
+    this.intervalObject;
 
     this.init();
 
+    window.requestAnimationFrame(this.check.bind(this));
     window.onresize = this.resize;
   }
 
@@ -156,24 +161,40 @@ class Slider {
 
   addDraggable() {
     this.dom?.addEventListener("mousedown", this.dragStart.bind(this));
-    window.addEventListener("mouseup", this.dragEnd.bind(this));
     this.dom?.addEventListener("mousemove", this.dragging.bind(this));
+    window.addEventListener("mouseup", this.dragEnd.bind(this));
     this.dom?.addEventListener("touchstart", this.touchStart.bind(this));
-    window.addEventListener("touchend", this.touchEnd.bind(this));
     this.dom?.addEventListener("touchmove", this.touching.bind(this));
+    window.addEventListener("touchend", this.touchEnd.bind(this));
   }
 
   dragStart(event: MouseEvent) {
+    if (this.sliding) return;
     this.isDragging = true;
     this.x = event.x;
     this.prevX = event.x;
   }
 
   dragEnd() {
+    if (this.sliding) return;
     this.isDragging = false;
     this.diffX = Number(
       this.contentDom?.style.transform.match(/-?\d+.?\d+(?=px)/)
     );
+    const nowxPos = this.now * this.clientWidth!;
+    const diffX = this.diffX + nowxPos;
+    if (Math.abs(diffX) >= this.clientWidth! / 4) {
+      if (diffX > 0) {
+        if (!(this.now <= 0)) {
+          this.now = this.now - 1;
+        }
+      } else if (diffX < 0) {
+        if (!(this.now >= this.max! - 1)) {
+          this.now = this.now + 1;
+        }
+      }
+    }
+    this.convertSlide(this.now);
   }
 
   dragging(event: MouseEvent) {
@@ -181,9 +202,10 @@ class Slider {
       this.isDragging === false ||
       this.x === undefined ||
       this.diffX === undefined ||
-      this.max === undefined
+      this.max === undefined ||
+      this.sliding
     )
-      throw new Error("Can not drag");
+      return;
     if (this.prevX === undefined) this.prevX = 0;
     if (this.nowxPos === undefined) this.nowxPos = 0;
     const nowMouseX: number = event.x;
@@ -202,16 +224,32 @@ class Slider {
   }
 
   touchStart(event: TouchEvent) {
+    if (this.sliding) return;
     this.isDragging = true;
     this.x = event.touches[0].pageX;
     this.prevX = event.touches[0].pageX;
   }
 
   touchEnd() {
+    if (this.sliding) return;
     this.isDragging = false;
     this.diffX = Number(
       this.contentDom?.style.transform.match(/-?\d+.?\d+(?=px)/)
     );
+    const nowxPos = this.now * this.clientWidth!;
+    const diffX = this.diffX + nowxPos;
+    if (Math.abs(diffX) >= this.clientWidth! / 4) {
+      if (diffX > 0) {
+        if (!(this.now <= 0)) {
+          this.now = this.now - 1;
+        }
+      } else if (diffX < 0) {
+        if (!(this.now >= this.max! - 1)) {
+          this.now = this.now + 1;
+        }
+      }
+    }
+    this.convertSlide(this.now);
   }
 
   touching(event: TouchEvent) {
@@ -219,7 +257,8 @@ class Slider {
       this.isDragging === false ||
       this.x === undefined ||
       this.diffX === undefined ||
-      this.max === undefined
+      this.max === undefined ||
+      this.sliding
     )
       throw new Error("Can not drag");
     if (this.prevX === undefined) this.prevX = 0;
@@ -229,7 +268,6 @@ class Slider {
     const nowTrans: number = this.nowxPos;
     let moveX: number = 0;
     const maxxPos = (this.max - 1) * this.dom!.clientWidth;
-    console.log(nowMouseX, diffMouseX, nowTrans);
     if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
     else if (-nowTrans >= maxxPos && diffMouseX > 0)
       diffMouseX = diffMouseX / 2;
@@ -238,6 +276,28 @@ class Slider {
       this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
     this.prevX = nowMouseX;
     this.nowxPos = moveX;
+  }
+
+  convertSlide(index: number) {
+    if (!this.contentDom) throw new Error("Can not found solider-content");
+    const moveX = -(index * this.clientWidth!);
+    this.contentDom.style.transition =
+      "0.35s all cubic-bezier(0.395, 0.040, 0.235, 0.995)";
+    this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
+    this.nowxPos = moveX;
+    this.timeoutObject = setTimeout(() => {
+      this.contentDom!.style.transition = "none";
+    }, 300);
+  }
+
+  check() {
+    if (this.nowxPos === undefined || this.clientWidth === undefined) return;
+    if (this.nowxPos % this.clientWidth !== 0 && !this.isDragging) {
+      this.sliding = true;
+    } else {
+      this.sliding = false;
+    }
+    window.requestAnimationFrame(this.check.bind(this));
   }
 
   addInfinite() {}
