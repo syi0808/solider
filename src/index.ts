@@ -29,6 +29,7 @@ const defaultParams: paramsType = {
 class Slider {
   dom: HTMLElement | null | undefined;
   contentDom: HTMLElement | null | undefined;
+  dotsDom: Element | undefined;
   x: number | undefined;
   diffX: number | undefined;
   prevX: number | undefined;
@@ -56,6 +57,7 @@ class Slider {
   constructor(props: paramsType) {
     this.dom = props.domObject;
     this.contentDom;
+    this.dotsDom;
     this.x;
     this.diffX = 0;
     this.prevX = 0;
@@ -81,8 +83,6 @@ class Slider {
     this.intervalObject;
 
     this.init();
-
-    window.requestAnimationFrame(this.check.bind(this));
     window.onresize = this.resize;
   }
 
@@ -95,6 +95,8 @@ class Slider {
     this.addDots();
     this.addArrows();
     this.addDraggable();
+    const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
+    dots[0].style.background = "white";
   }
 
   resize() {
@@ -130,30 +132,37 @@ class Slider {
     if (this.max === undefined) throw new Error("Can not found childElement");
     for (let index = 0; index < this.max; index++) {
       const tempDotElement: Node = dotElement.cloneNode();
-      const nowPage = index + 1;
+      const nowPage = index;
       tempDotElement.addEventListener("click", () => {
+        if (this.sliding) return;
         this.now = nowPage;
+        this.convertSlide(this.now);
       });
       domWrapperElement.appendChild(tempDotElement);
     }
     this.dom?.appendChild(domWrapperElement);
+    this.dotsDom = domWrapperElement;
   }
 
   addArrows() {
     const leftArrowElement: Element = document.createElement("div");
     const rightArrowElement: Element = document.createElement("div");
-    const nextPage = this.now + 1;
-    const prevPage = this.now - 1;
     leftArrowElement.setAttribute("class", "solider-left-arrow");
     rightArrowElement.setAttribute("class", "solider-right-arrow");
-    rightArrowElement.addEventListener("click", () => {
+    rightArrowElement.addEventListener("click", (event) => {
+      console.log(this.sliding);
+      if (this.sliding) return;
       if (this.max === undefined) throw new Error("Can not found childElement");
-      if (nextPage > this.max) return;
-      this.now = nextPage;
+      if (this.now >= this.max - 1) return;
+      this.now = this.now + 1;
+      this.convertSlide(this.now);
     });
-    leftArrowElement.addEventListener("click", () => {
-      if (prevPage < 1) return;
-      this.now = prevPage;
+    leftArrowElement.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (this.sliding) return;
+      if (this.now <= 0) return;
+      this.now = this.now - 1;
+      this.convertSlide(this.now);
     });
     this.dom?.appendChild(leftArrowElement);
     this.dom?.appendChild(rightArrowElement);
@@ -169,13 +178,15 @@ class Slider {
   }
 
   dragStart(event: MouseEvent) {
+    if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = true;
     this.x = event.x;
     this.prevX = event.x;
   }
 
-  dragEnd() {
+  dragEnd(event: MouseEvent) {
+    if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = false;
     this.diffX = Number(
@@ -198,6 +209,7 @@ class Slider {
   }
 
   dragging(event: MouseEvent) {
+    if (this.check(event.target)) return;
     if (
       this.isDragging === false ||
       this.x === undefined ||
@@ -224,13 +236,15 @@ class Slider {
   }
 
   touchStart(event: TouchEvent) {
+    if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = true;
     this.x = event.touches[0].pageX;
     this.prevX = event.touches[0].pageX;
   }
 
-  touchEnd() {
+  touchEnd(event: TouchEvent) {
+    if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = false;
     this.diffX = Number(
@@ -253,6 +267,7 @@ class Slider {
   }
 
   touching(event: TouchEvent) {
+    if (this.check(event.target)) return;
     if (
       this.isDragging === false ||
       this.x === undefined ||
@@ -280,24 +295,43 @@ class Slider {
 
   convertSlide(index: number) {
     if (!this.contentDom) throw new Error("Can not found solider-content");
+    if (this.sliding) return;
     const moveX = -(index * this.clientWidth!);
+    const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].style.background = "black";
+      dots[i].style.cursor = "pointer";
+    }
+    dots[index].style.background = "white";
+    dots[index].style.cursor = "default";
+    this.sliding = true;
     this.contentDom.style.transition =
-      "0.35s all cubic-bezier(0.395, 0.040, 0.235, 0.995)";
+      "0.4s all cubic-bezier(0.370, 0.230, 0.095, 0.915)";
     this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
+    document.getElementsByClassName("solider-dots-wrapper");
     this.nowxPos = moveX;
-    this.timeoutObject = setTimeout(() => {
+    setTimeout(() => {
       this.contentDom!.style.transition = "none";
-    }, 300);
+      this.sliding = false;
+    }, 400);
   }
 
-  check() {
-    if (this.nowxPos === undefined || this.clientWidth === undefined) return;
-    if (this.nowxPos % this.clientWidth !== 0 && !this.isDragging) {
-      this.sliding = true;
-    } else {
-      this.sliding = false;
+  check(target: EventTarget | null): boolean {
+    let isIn = false;
+    for (let i = 0; i < this.dotsDom!.children.length; i++) {
+      if (this.dotsDom?.children[i] === target) {
+        isIn = true;
+      }
     }
-    window.requestAnimationFrame(this.check.bind(this));
+    if (
+      target === document.getElementsByClassName("solider-right-arrow")[0] ||
+      target === document.getElementsByClassName("solider-left-arrow")[0] ||
+      isIn
+    ) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   addInfinite() {}
