@@ -1,7 +1,7 @@
 "use strict";
 interface paramsType {
   domObject?: HTMLElement | null;
-  type?: "rotation" | "perspective";
+  type?: "2d" | "rotation" | "perspective";
   autoplay?: boolean;
   dots?: boolean;
   arrow?: boolean;
@@ -16,11 +16,11 @@ interface paramsType {
 
 const defaultParams: paramsType = {
   domObject: null,
-  type: "rotation",
+  type: "2d",
   autoplay: true,
   dots: false,
   arrow: false,
-  infinite: false,
+  infinite: true,
   draggable: false,
   autoplayDelay: 2000,
   speed: 100,
@@ -97,6 +97,9 @@ class Slider {
     this.addDraggable();
     const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
     dots[0].style.background = "white";
+    if (this.isInfinite) {
+      this.appendEnd();
+    }
   }
 
   resize() {
@@ -105,11 +108,13 @@ class Slider {
   }
 
   containElement() {
-    const childrens = this.dom?.children;
+    const childrens = this.dom?.children as HTMLCollectionOf<HTMLElement>;
     const tempDom = document.createElement("div");
     tempDom.setAttribute("class", "solider-content");
     if (!childrens || !this.max) return;
     for (let i = 0; i < this.max; i++) {
+      childrens[0].style.width = "100%";
+      childrens[0].style.height = "100%";
       tempDom.appendChild(childrens[0]);
     }
     this.dom?.appendChild(tempDom);
@@ -150,17 +155,16 @@ class Slider {
     leftArrowElement.setAttribute("class", "solider-left-arrow");
     rightArrowElement.setAttribute("class", "solider-right-arrow");
     rightArrowElement.addEventListener("click", (event) => {
-      console.log(this.sliding);
       if (this.sliding) return;
       if (this.max === undefined) throw new Error("Can not found childElement");
-      if (this.now >= this.max - 1) return;
+      if (this.now >= this.max - 1 && !this.isInfinite) return;
       this.now = this.now + 1;
       this.convertSlide(this.now);
     });
     leftArrowElement.addEventListener("click", (event) => {
       event.stopPropagation();
       if (this.sliding) return;
-      if (this.now <= 0) return;
+      if (this.now <= 0 && !this.isInfinite) return;
       this.now = this.now - 1;
       this.convertSlide(this.now);
     });
@@ -187,20 +191,28 @@ class Slider {
 
   dragEnd(event: MouseEvent) {
     if (this.check(event.target)) return;
-    if (this.sliding) return;
+    if (this.sliding || !this.isDragging) return;
     this.isDragging = false;
     this.diffX = Number(
       this.contentDom?.style.transform.match(/-?\d+.?\d+(?=px)/)
     );
-    const nowxPos = this.now * this.clientWidth!;
+    let nowxPos = this.now * this.clientWidth!;
+    if (this.isInfinite) {
+      nowxPos = nowxPos + this.clientWidth!;
+    }
     const diffX = this.diffX + nowxPos;
+    const direction = diffX > 0 ? 1 : diffX < 0 ? -1 : 0;
     if (Math.abs(diffX) >= this.clientWidth! / 4) {
-      if (diffX > 0) {
-        if (!(this.now <= 0)) {
+      if (direction === 1) {
+        if (this.now > 0) {
+          this.now = this.now - 1;
+        } else if (this.isInfinite) {
           this.now = this.now - 1;
         }
-      } else if (diffX < 0) {
-        if (!(this.now >= this.max! - 1)) {
+      } else if (direction === -1) {
+        if (this.now < this.max! - 1) {
+          this.now = this.now + 1;
+        } else if (this.isInfinite) {
           this.now = this.now + 1;
         }
       }
@@ -225,9 +237,11 @@ class Slider {
     const nowTrans: number = this.nowxPos;
     let moveX: number = 0;
     const maxxPos = (this.max - 1) * this.dom!.clientWidth;
-    if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
-    else if (-nowTrans >= maxxPos && diffMouseX > 0)
-      diffMouseX = diffMouseX / 2;
+    if (!this.isInfinite) {
+      if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
+      else if (-nowTrans >= maxxPos && diffMouseX > 0)
+        diffMouseX = diffMouseX / 2;
+    }
     moveX = nowTrans - diffMouseX;
     if (this.contentDom)
       this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
@@ -296,11 +310,19 @@ class Slider {
   convertSlide(index: number) {
     if (!this.contentDom) throw new Error("Can not found solider-content");
     if (this.sliding) return;
-    const moveX = -(index * this.clientWidth!);
+    let moveX = -(index * this.clientWidth!);
+    if (this.isInfinite) {
+      moveX = moveX + -600;
+    }
     const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
     for (let i = 0; i < dots.length; i++) {
       dots[i].style.background = "black";
       dots[i].style.cursor = "pointer";
+    }
+    if (index < 0) {
+      index = this.max! - 1;
+    } else if (index >= this.max!) {
+      index = 0;
     }
     dots[index].style.background = "white";
     dots[index].style.cursor = "default";
@@ -313,7 +335,33 @@ class Slider {
     setTimeout(() => {
       this.contentDom!.style.transition = "none";
       this.sliding = false;
+      if (this.isInfinite) {
+        if (this.now >= this.max!) {
+          this.contentDom!.style.transform = `translate3D(${-this
+            .clientWidth!}px, 0, 0)`;
+          this.nowxPos = -this.clientWidth!;
+          this.now = 0;
+        } else if (this.now < 0) {
+          this.contentDom!.style.transform = `translate3D(${
+            -this.clientWidth! * this.max!
+          }px, 0, 0)`;
+          this.nowxPos = -this.clientWidth! * this.max!;
+          this.now = this.max! - 1;
+        }
+      }
     }, 400);
+  }
+
+  appendEnd() {
+    const firstChild:
+      | Node
+      | undefined = this.contentDom!.firstChild?.cloneNode();
+    const lastChild: Node | undefined = this.contentDom!.lastChild?.cloneNode();
+    this.contentDom?.insertBefore(lastChild!, this.contentDom!.firstChild);
+    this.contentDom?.appendChild(firstChild!);
+    this.contentDom!.style.transform = `translate3D(${-this
+      .clientWidth!}px, 0, 0)`;
+    this.nowxPos = -this.clientWidth!;
   }
 
   check(target: EventTarget | null): boolean {
