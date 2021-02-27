@@ -1,0 +1,8 @@
+node_modules/
+package-lock.json
+.gitignore
+.npmignore
+test/
+dist/
+index.html
+temp.html
