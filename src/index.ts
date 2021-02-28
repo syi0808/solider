@@ -20,9 +20,9 @@ const defaultParams: paramsType = {
   autoplay: true,
   dots: false,
   arrow: false,
-  infinite: true,
+  infinite: false,
   draggable: false,
-  autoplayDelay: 2000,
+  autoplayDelay: 5000,
   speed: 100,
 };
 
@@ -99,6 +99,9 @@ class Slider {
     dots[0].style.background = "white";
     if (this.isInfinite) {
       this.appendEnd();
+    }
+    if (this.isAutoplay) {
+      this.addAutoplay();
     }
   }
 
@@ -182,6 +185,10 @@ class Slider {
   }
 
   dragStart(event: MouseEvent) {
+    if (this.intervalObject) {
+      clearInterval(this.intervalObject);
+      this.addAutoplay();
+    }
     if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = true;
@@ -382,9 +389,17 @@ class Slider {
     }
   }
 
-  addInfinite() {}
-
-  addAutoplay() {}
+  addAutoplay() {
+    this.intervalObject = setInterval(() => {
+      this.now = this.now + 1;
+      if (!this.isInfinite) {
+        if (this.now > this.max! - 1) {
+          this.now = 0;
+        }
+      }
+      this.convertSlide(this.now);
+    }, this.autoplayDelay);
+  }
 
   addEffect() {
     switch (this.type) {
