@@ -1,0 +1,49 @@
+.solider-contain-wrapper {
+  overflow-x: hidden;
+  position: relative;
+}
+.solider-content {
+  display: grid;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  grid-template-rows: 100%;
+}
+.solider-dots-wrapper {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+}
+.solider-dots {
+  width: 10px;
+  height: 10px;
+  background: black;
+  margin-right: 6px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.solider-dots:last-child {
+  margin-right: 0;
+}
+.solider-left-arrow {
+  background: black;
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  font-size: 20px;
+  transform: translateY(-50%);
+}
+.solider-right-arrow {
+  background: black;
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  font-size: 20px;
+  transform: translateY(-50%);
+}

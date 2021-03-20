@@ -17,16 +17,37 @@ interface paramsType {
 const defaultParams: paramsType = {
   domObject: null,
   type: "2d",
-  autoplay: true,
+  autoplay: false,
   dots: false,
   arrow: false,
   infinite: false,
   draggable: false,
   autoplayDelay: 5000,
-  speed: 100,
+  speed: 400,
 };
 
-class Slider {
+interface Slider {
+  init(): void;
+  resize(): void;
+  containElement(): void;
+  removeImgDragging(): void;
+  addDots(): void;
+  addArrows(): void;
+  addDraggable(): void;
+  dragStart(event: MouseEvent): void;
+  dragEnd(event: MouseEvent): void;
+  dragging(event: MouseEvent): void;
+  touchStart(event: TouchEvent): void;
+  touchEnd(event: TouchEvent): void;
+  touching(event: TouchEvent): void;
+  convertSlide(index: number): void;
+  appendEnd(): void;
+  check(target: EventTarget | null): boolean;
+  addAutoplay(): void;
+  addEffect(): void;
+}
+
+class Slider implements Slider {
   dom: HTMLElement | null | undefined;
   contentDom: HTMLElement | null | undefined;
   dotsDom: Element | undefined;
@@ -103,6 +124,7 @@ class Slider {
     if (this.isAutoplay) {
       this.addAutoplay();
     }
+    this.addEffect();
   }
 
   resize() {
@@ -120,6 +142,7 @@ class Slider {
       childrens[0].style.height = "100%";
       tempDom.appendChild(childrens[0]);
     }
+    tempDom.style.gridTemplateColumns = `repeat(${tempDom.childElementCount}, 100%)`;
     this.dom?.appendChild(tempDom);
     this.contentDom = tempDom;
   }
@@ -137,6 +160,7 @@ class Slider {
     const dotElement: Element = document.createElement("div");
     domWrapperElement.setAttribute("class", "solider-dots-wrapper");
     dotElement.setAttribute("class", "solider-dots");
+    if (this.dotClass) dotElement.classList.add(this.dotClass);
     if (this.max === undefined) throw new Error("Can not found childElement");
     for (let index = 0; index < this.max; index++) {
       const tempDotElement: Node = dotElement.cloneNode();
@@ -153,11 +177,20 @@ class Slider {
   }
 
   addArrows() {
-    const leftArrowElement: Element = document.createElement("div");
-    const rightArrowElement: Element = document.createElement("div");
+    let leftArrowElement: Element = document.createElement("div");
+    let rightArrowElement: Element = document.createElement("div");
     leftArrowElement.setAttribute("class", "solider-left-arrow");
     rightArrowElement.setAttribute("class", "solider-right-arrow");
+    if (this.leftArrow) {
+      leftArrowElement.innerHTML = this.leftArrow;
+      leftArrowElement = leftArrowElement.children[0];
+    }
+    if (this.rightArrow) {
+      rightArrowElement.innerHTML = this.rightArrow;
+      rightArrowElement = rightArrowElement.children[0];
+    }
     rightArrowElement.addEventListener("click", (event) => {
+      event.stopPropagation();
       if (this.sliding) return;
       if (this.max === undefined) throw new Error("Can not found childElement");
       if (this.now >= this.max - 1 && !this.isInfinite) return;
@@ -250,13 +283,16 @@ class Slider {
         diffMouseX = diffMouseX / 2;
     }
     moveX = nowTrans - diffMouseX;
-    if (this.contentDom)
-      this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
+    this.contentDom!.style.transform = `translate3d(${moveX}px, 0, 0)`;
     this.prevX = nowMouseX;
     this.nowxPos = moveX;
   }
 
   touchStart(event: TouchEvent) {
+    if (this.intervalObject) {
+      clearInterval(this.intervalObject);
+      this.addAutoplay();
+    }
     if (this.check(event.target)) return;
     if (this.sliding) return;
     this.isDragging = true;
@@ -266,20 +302,28 @@ class Slider {
 
   touchEnd(event: TouchEvent) {
     if (this.check(event.target)) return;
-    if (this.sliding) return;
+    if (this.sliding || !this.isDragging) return;
     this.isDragging = false;
     this.diffX = Number(
       this.contentDom?.style.transform.match(/-?\d+.?\d+(?=px)/)
     );
-    const nowxPos = this.now * this.clientWidth!;
+    let nowxPos = this.now * this.clientWidth!;
+    if (this.isInfinite) {
+      nowxPos = nowxPos + this.clientWidth!;
+    }
     const diffX = this.diffX + nowxPos;
+    const direction = diffX > 0 ? 1 : diffX < 0 ? -1 : 0;
     if (Math.abs(diffX) >= this.clientWidth! / 4) {
-      if (diffX > 0) {
-        if (!(this.now <= 0)) {
+      if (direction === 1) {
+        if (this.now > 0) {
+          this.now = this.now - 1;
+        } else if (this.isInfinite) {
           this.now = this.now - 1;
         }
-      } else if (diffX < 0) {
-        if (!(this.now >= this.max! - 1)) {
+      } else if (direction === -1) {
+        if (this.now < this.max! - 1) {
+          this.now = this.now + 1;
+        } else if (this.isInfinite) {
           this.now = this.now + 1;
         }
       }
@@ -296,7 +340,7 @@ class Slider {
       this.max === undefined ||
       this.sliding
     )
-      throw new Error("Can not drag");
+      return;
     if (this.prevX === undefined) this.prevX = 0;
     if (this.nowxPos === undefined) this.nowxPos = 0;
     const nowMouseX: number = event.touches[0].pageX;
@@ -304,12 +348,13 @@ class Slider {
     const nowTrans: number = this.nowxPos;
     let moveX: number = 0;
     const maxxPos = (this.max - 1) * this.dom!.clientWidth;
-    if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
-    else if (-nowTrans >= maxxPos && diffMouseX > 0)
-      diffMouseX = diffMouseX / 2;
+    if (!this.isInfinite) {
+      if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
+      else if (-nowTrans >= maxxPos && diffMouseX > 0)
+        diffMouseX = diffMouseX / 2;
+    }
     moveX = nowTrans - diffMouseX;
-    if (this.contentDom)
-      this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
+    this.contentDom!.style.transform = `translate3d(${moveX}px, 0, 0)`;
     this.prevX = nowMouseX;
     this.nowxPos = moveX;
   }
@@ -334,8 +379,7 @@ class Slider {
     dots[index].style.background = "white";
     dots[index].style.cursor = "default";
     this.sliding = true;
-    this.contentDom.style.transition =
-      "0.4s all cubic-bezier(0.370, 0.230, 0.095, 0.915)";
+    this.contentDom.style.transition = `${this.speed}ms all cubic-bezier(0.370, 0.230, 0.095, 0.915)`;
     this.contentDom.style.transform = `translate3D(${moveX}px, 0, 0)`;
     document.getElementsByClassName("solider-dots-wrapper");
     this.nowxPos = moveX;
@@ -371,7 +415,7 @@ class Slider {
     this.nowxPos = -this.clientWidth!;
   }
 
-  check(target: EventTarget | null): boolean {
+  check(target: EventTarget | null) {
     let isIn = false;
     for (let i = 0; i < this.dotsDom!.children.length; i++) {
       if (this.dotsDom?.children[i] === target) {
@@ -413,6 +457,122 @@ class Slider {
   }
 }
 
+class RotationSlider extends Slider {
+  constructor(props: paramsType) {
+    super(props);
+    this.dom!.style.perspective = "800px";
+    this.contentDom!.style.transformStyle = "preserve-3d";
+    this.contentDom!.style.position = "relative";
+    this.contentDom!.style.transform = `translateZ(${
+      -this.clientWidth! / 2
+    }px)`;
+    const childs = this.contentDom!.children as HTMLCollectionOf<HTMLElement>;
+    for (let i = 0; i < childs.length; i++) {
+      childs[i].style.position = "absolute";
+      childs[i].style.transform = `rotateY(${i * 90}deg) translateZ(${
+        this.clientWidth! / 2
+      }px)`;
+    }
+  }
+
+  dragging(event: MouseEvent) {
+    if (this.check(event.target)) return;
+    if (
+      this.isDragging === false ||
+      this.x === undefined ||
+      this.diffX === undefined ||
+      this.max === undefined ||
+      this.sliding
+    )
+      return;
+    if (this.prevX === undefined) this.prevX = 0;
+    if (this.nowxPos === undefined) this.nowxPos = 0;
+    const nowMouseX: number = event.x;
+    let diffMouseX: number = this.prevX - nowMouseX;
+    const nowTrans: number = this.nowxPos;
+    let moveX: number = 0;
+    const maxxPos = (this.max - 1) * this.dom!.clientWidth;
+    if (!this.isInfinite) {
+      if (nowTrans > 0 && diffMouseX < 0) diffMouseX = diffMouseX / 2;
+      else if (-nowTrans >= maxxPos && diffMouseX > 0)
+        diffMouseX = diffMouseX / 2;
+    }
+    moveX = nowTrans - diffMouseX;
+    const childs = this.contentDom!.children as HTMLCollectionOf<HTMLElement>;
+    for (let i = 0; i < childs.length; i++) {
+      childs[i].style.position = "absolute";
+      childs[i].style.transform = `rotateY(${-(
+        (Math.abs(moveX - this.clientWidth!) / this.clientWidth!) * 90 -
+        90 * (i + 1)
+      )}deg) translateZ(${this.clientWidth! / 2}px)`;
+    }
+    this.prevX = nowMouseX;
+    this.nowxPos = moveX;
+  }
+
+  dragEnd(event: MouseEvent) {
+    if (this.check(event.target)) return;
+    if (this.sliding || !this.isDragging) return;
+    this.isDragging = false;
+    const children = this.contentDom!.children as HTMLCollectionOf<HTMLElement>;
+    this.diffX = Number(children[0].style.transform.match(/-?\d+.?\d+(?=deg)/));
+    let nowxPos = this.now * 90;
+    const diffX = this.diffX + nowxPos;
+    const direction = diffX > 0 ? 1 : diffX < 0 ? -1 : 0;
+    if (Math.abs(diffX) >= 22.5) {
+      if (direction === 1) {
+        if (this.now > 0) {
+          this.now = this.now - 1;
+        } else if (this.isInfinite) {
+          this.now = this.now - 1;
+        }
+      } else if (direction === -1) {
+        if (this.now < this.max! - 1) {
+          this.now = this.now + 1;
+        } else if (this.isInfinite) {
+          this.now = this.now + 1;
+        }
+      }
+    }
+    this.convertSlide(this.now);
+  }
+
+  convertSlide(index: number) {
+    if (!this.contentDom) throw new Error("Can not found solider-content");
+    if (this.sliding) return;
+    let moveX = -(index * this.clientWidth!);
+    const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].style.background = "black";
+      dots[i].style.cursor = "pointer";
+    }
+    dots[index].style.background = "white";
+    dots[index].style.cursor = "default";
+    const childs = this.contentDom!.children as HTMLCollectionOf<HTMLElement>;
+    this.sliding = true;
+    for (let i = 0; i < childs.length; i++) {
+      childs[
+        i
+      ].style.transition = `${this.speed}ms all cubic-bezier(0.370, 0.230, 0.095, 0.915)`;
+      childs[i].style.transform = `rotateY(${
+        i * 90 + this.now * -90
+      }deg) translateZ(${this.clientWidth! / 2}px)`;
+    }
+    document.getElementsByClassName("solider-dots-wrapper");
+    this.nowxPos = moveX;
+    setTimeout(() => {
+      this.sliding = false;
+      const childs = this.contentDom!.children as HTMLCollectionOf<HTMLElement>;
+      for (let i = 0; i < childs.length; i++) {
+        childs[i].style.transition = "none";
+      }
+    }, 400);
+  }
+}
+
+class DefaultSlider extends Slider {}
+class PerspectiveSlider extends Slider {}
+
 export function create(params: paramsType): void {
   const settings: paramsType = {
     ...defaultParams,
@@ -420,9 +580,14 @@ export function create(params: paramsType): void {
   };
   if (!settings.domObject) throw new Error("Can not found document");
   switch (settings.type) {
+    case "2d":
+      new DefaultSlider(settings);
+      break;
     case "rotation":
+      new RotationSlider(settings);
+      break;
     case "perspective":
-      new Slider(settings);
+      new PerspectiveSlider(settings);
       break;
     default:
       throw new Error("Can not found type");
