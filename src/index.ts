@@ -110,7 +110,8 @@ class Slider implements Slider {
   init() {
     this.clientWidth = this.dom?.clientWidth;
     this.clientHeight = this.dom?.clientHeight;
-    this.dom?.setAttribute("class", "solider-contain-wrapper");
+    this.dom!.style.overflowX = "hidden";
+    this.dom!.style.position = "relative";
     this.containElement();
     this.removeImgDragging();
     this.addDots();
@@ -135,14 +136,23 @@ class Slider implements Slider {
   containElement() {
     const childrens = this.dom?.children as HTMLCollectionOf<HTMLElement>;
     const tempDom = document.createElement("div");
-    tempDom.setAttribute("class", "solider-content");
+    tempDom.style.display = "grid";
+    tempDom.style.cursor = "pointer";
+    tempDom.style.width = "100%";
+    tempDom.style.height = "100%";
+    tempDom.style.gridTemplateRows = "100%";
     if (!childrens || !this.max) return;
     for (let i = 0; i < this.max; i++) {
       childrens[0].style.width = "100%";
       childrens[0].style.height = "100%";
       tempDom.appendChild(childrens[0]);
     }
-    tempDom.style.gridTemplateColumns = `repeat(${tempDom.childElementCount}, 100%)`;
+    if (this.isInfinite)
+      tempDom.style.gridTemplateColumns = `repeat(${
+        tempDom.childElementCount + 2
+      }, 100%)`;
+    else
+      tempDom.style.gridTemplateColumns = `repeat(${tempDom.childElementCount}, 100%)`;
     this.dom?.appendChild(tempDom);
     this.contentDom = tempDom;
   }
@@ -156,13 +166,25 @@ class Slider implements Slider {
   }
 
   addDots() {
-    const domWrapperElement: Element = document.createElement("div");
-    const dotElement: Element = document.createElement("div");
-    domWrapperElement.setAttribute("class", "solider-dots-wrapper");
-    dotElement.setAttribute("class", "solider-dots");
+    const domWrapperElement: HTMLElement = document.createElement("div");
+    const dotElement: HTMLElement = document.createElement("div");
+    domWrapperElement.style.position = "absolute";
+    domWrapperElement.style.bottom = "10px";
+    domWrapperElement.style.left = "50%";
+    domWrapperElement.style.transform = "translateX(-50%)";
+    domWrapperElement.style.display = "flex";
     if (this.dotClass) dotElement.classList.add(this.dotClass);
+    else {
+      dotElement.style.width = "10px";
+      dotElement.style.height = "10px";
+      dotElement.style.background = "black";
+      dotElement.style.marginRight = "6px";
+      dotElement.style.borderRadius = "50%";
+      dotElement.style.cursor = "pointer";
+    }
     if (this.max === undefined) throw new Error("Can not found childElement");
     for (let index = 0; index < this.max; index++) {
+      if (index === this.max - 1) dotElement.style.marginRight = "0";
       const tempDotElement: Node = dotElement.cloneNode();
       const nowPage = index;
       tempDotElement.addEventListener("click", () => {
@@ -177,17 +199,39 @@ class Slider implements Slider {
   }
 
   addArrows() {
-    let leftArrowElement: Element = document.createElement("div");
-    let rightArrowElement: Element = document.createElement("div");
+    let leftArrowElement: HTMLElement = document.createElement("div");
+    let rightArrowElement: HTMLElement = document.createElement("div");
     leftArrowElement.setAttribute("class", "solider-left-arrow");
     rightArrowElement.setAttribute("class", "solider-right-arrow");
     if (this.leftArrow) {
       leftArrowElement.innerHTML = this.leftArrow;
-      leftArrowElement = leftArrowElement.children[0];
+      leftArrowElement = leftArrowElement
+        .children[0] as HTMLCollectionOf<HTMLElement>[0];
+      leftArrowElement.classList.add("solider-left-arrow");
+    } else {
+      leftArrowElement.style.background = "black";
+      leftArrowElement.style.width = "20px";
+      leftArrowElement.style.height = "20px";
+      leftArrowElement.style.position = "absolute";
+      leftArrowElement.style.top = "50%";
+      leftArrowElement.style.left = "15px";
+      leftArrowElement.style.fontSize = "20px";
+      leftArrowElement.style.transform = "translateY(-50%)";
     }
     if (this.rightArrow) {
       rightArrowElement.innerHTML = this.rightArrow;
-      rightArrowElement = rightArrowElement.children[0];
+      rightArrowElement = rightArrowElement
+        .children[0] as HTMLCollectionOf<HTMLElement>[0];
+      rightArrowElement.classList.add("solider-right-arrow");
+    } else {
+      rightArrowElement.style.background = "black";
+      rightArrowElement.style.width = "20px";
+      rightArrowElement.style.height = "20px";
+      rightArrowElement.style.position = "absolute";
+      rightArrowElement.style.top = "50%";
+      rightArrowElement.style.right = "15px";
+      rightArrowElement.style.fontSize = "20px";
+      rightArrowElement.style.transform = "translateY(-50%)";
     }
     rightArrowElement.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -364,7 +408,7 @@ class Slider implements Slider {
     if (this.sliding) return;
     let moveX = -(index * this.clientWidth!);
     if (this.isInfinite) {
-      moveX = moveX + -600;
+      moveX = moveX - this.clientWidth!;
     }
     const dots = this.dotsDom?.children as HTMLCollectionOf<HTMLElement>;
     for (let i = 0; i < dots.length; i++) {
@@ -400,7 +444,7 @@ class Slider implements Slider {
           this.now = this.max! - 1;
         }
       }
-    }, 400);
+    }, this.speed);
   }
 
   appendEnd() {
@@ -558,7 +602,6 @@ class RotationSlider extends Slider {
         i * 90 + this.now * -90
       }deg) translateZ(${this.clientWidth! / 2}px)`;
     }
-    document.getElementsByClassName("solider-dots-wrapper");
     this.nowxPos = moveX;
     setTimeout(() => {
       this.sliding = false;

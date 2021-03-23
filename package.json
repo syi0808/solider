@@ -1,16 +1,12 @@
 {
   "name": "solider",
-  "version": "1.0.5",
+  "version": "1.1.1",
   "description": "3D Slider",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist/index.css"
-  ],
   "scripts": {
     "build": "tsc",
-    "test": "mocha --reporter spec",
-    "a": "npm run build"
+    "test": "mocha --reporter spec"
   },
   "repository": {
     "type": "git",
